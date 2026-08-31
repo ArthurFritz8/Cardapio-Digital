@@ -9,8 +9,10 @@ type CookieToSet = { name: string; value: string; options: CookieOptions };
  * autenticado via cookies da sessão do usuário (RLS aplicado).
  */
 export function createSupabaseServerClient() {
-  const env = getServerEnv();
+  // cookies() ANTES do env: marca a rota como dinâmica no build,
+  // evitando prerender que quebraria sem .env (CI/build local)
   const cookieStore = cookies();
+  const env = getServerEnv();
 
   return createServerClient(
     env.NEXT_PUBLIC_SUPABASE_URL,

@@ -6,6 +6,9 @@ export const establishmentSchema = z.object({
   slug: slugSchema,
   description: z.string().trim().max(300).nullable().optional(),
   is_open: z.boolean().default(true),
+  latitude: z.number().min(-90).max(90).nullable().optional(),
+  longitude: z.number().min(-180).max(180).nullable().optional(),
+  order_radius_meters: z.number().int().min(30).max(1000).default(150),
 });
 
 export const tableSchema = z.object({
