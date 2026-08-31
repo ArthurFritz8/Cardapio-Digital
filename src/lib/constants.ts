@@ -17,3 +17,9 @@ export const GEOLOCATION_TIMEOUT_MS = 5_000;
  * Sem cap, uma accuracy spoofada gigante auto-aprovaria qualquer pedido.
  */
 export const MAX_GPS_ACCURACY_COMPENSATION_METERS = 100;
+
+/** TTL do carrinho no localStorage (a sessão de mesa renova sozinha no envio). */
+export const CART_TTL_HOURS = 4;
+
+/** Intervalo de polling do status do pedido (cliente anônimo — RLS veda Realtime). */
+export const ORDER_POLL_INTERVAL_MS = 5_000;

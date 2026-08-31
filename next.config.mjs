@@ -6,8 +6,27 @@ const withPWA = withPWAInit({
   cacheOnFrontEndNav: true,
   aggressiveFrontEndNavCaching: true,
   reloadOnOnline: true,
+  // Mantém o runtime caching padrão do next-pwa e ADICIONA a regra abaixo
+  extendDefaultRuntimeCaching: true,
   workboxOptions: {
     disableDevLogs: true,
+    runtimeCaching: [
+      {
+        // Fotos do cardápio (Supabase Storage público): cache-first —
+        // imagem de prato quase nunca muda e o menu precisa abrir offline
+        urlPattern:
+          /^https:\/\/[a-z0-9-]+\.supabase\.co\/storage\/v1\/object\/public\/.*/i,
+        handler: "CacheFirst",
+        options: {
+          cacheName: "supabase-images",
+          expiration: {
+            maxEntries: 128,
+            maxAgeSeconds: 30 * 24 * 60 * 60, // 30 dias
+          },
+          cacheableResponse: { statuses: [0, 200] },
+        },
+      },
+    ],
   },
 });
 
