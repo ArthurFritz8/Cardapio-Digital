@@ -118,4 +118,12 @@ describe("appendCancelReason", () => {
     expect(appendCancelReason("obs", "  ")).toBe("obs");
     expect(appendCancelReason(null, "")).toBeNull();
   });
+
+  it("nunca estoura o check de 300 chars do banco, preservando o motivo", () => {
+    const longNote = "x".repeat(300);
+    const result = appendCancelReason(longNote, "Cliente desistiu");
+    expect(result).not.toBeNull();
+    expect(result!.length).toBeLessThanOrEqual(300);
+    expect(result).toContain("Cancelado: Cliente desistiu");
+  });
 });

@@ -78,5 +78,9 @@ export function appendCancelReason(
   const trimmed = reason.trim().slice(0, 200);
   if (!trimmed) return note;
   const suffix = `Cancelado: ${trimmed}`;
-  return note ? `${note} | ${suffix}` : suffix;
+  const combined = note ? `${note} | ${suffix}` : suffix;
+  // orders.note tem check <= 300 no banco — estourar faria o UPDATE falhar
+  if (combined.length <= 300) return combined;
+  const room = Math.max(0, 300 - suffix.length - 4);
+  return `${(note ?? "").slice(0, room)}… | ${suffix}`.slice(0, 300);
 }
