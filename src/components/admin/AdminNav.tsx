@@ -1,11 +1,12 @@
 "use client";
 
-import { QrCode, Store, UtensilsCrossed } from "lucide-react";
+import { ClipboardList, QrCode, Store, UtensilsCrossed } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/components/ui";
 
 const NAV_ITEMS = [
+  { href: "/admin/pedidos", label: "Pedidos", icon: ClipboardList },
   { href: "/admin", label: "Estabelecimento", icon: Store },
   { href: "/admin/cardapio", label: "Cardápio", icon: UtensilsCrossed },
   { href: "/admin/mesas", label: "Mesas", icon: QrCode },

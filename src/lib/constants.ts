@@ -23,3 +23,6 @@ export const CART_TTL_HOURS = 4;
 
 /** Intervalo de polling do status do pedido (cliente anônimo — RLS veda Realtime). */
 export const ORDER_POLL_INTERVAL_MS = 5_000;
+
+/** Polling de segurança do painel do dono (Realtime é acelerador, não fonte única). */
+export const OWNER_ORDERS_POLL_INTERVAL_MS = 30_000;
