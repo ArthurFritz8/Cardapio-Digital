@@ -2,6 +2,13 @@ import { z } from "zod";
 import { ORDER_STATUSES } from "@/types/domain";
 import { uuidSchema } from "./common";
 
+/** Localização opcional do cliente (triagem heurística — spoofável). */
+export const clientLocationSchema = z.object({
+  latitude: z.number().min(-90).max(90),
+  longitude: z.number().min(-180).max(180),
+  accuracy: z.number().min(0).max(100_000).optional(),
+});
+
 /**
  * Payload de criação de pedido enviado pelo cliente anônimo.
  * SEGURANÇA: o cliente envia apenas IDs e quantidades — preços e nomes
@@ -9,8 +16,10 @@ import { uuidSchema } from "./common";
  */
 export const createOrderSchema = z.object({
   table_id: uuidSchema,
+  session_token: uuidSchema,
   customer_name: z.string().trim().min(1).max(60).optional(),
   note: z.string().trim().max(300).optional(),
+  location: clientLocationSchema.optional(),
   items: z
     .array(
       z.object({

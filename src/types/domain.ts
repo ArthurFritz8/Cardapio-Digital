@@ -33,6 +33,10 @@ export interface Establishment {
   description: string | null;
   logo_url: string | null;
   is_open: boolean;
+  /** Coordenadas nulas = triagem por geolocalização desligada. */
+  latitude: number | null;
+  longitude: number | null;
+  order_radius_meters: number;
   created_at: string;
   updated_at: string;
 }
@@ -42,6 +46,8 @@ export interface Table {
   establishment_id: string;
   label: string;
   is_active: boolean;
+  session_token: string | null;
+  session_expires_at: string | null;
   created_at: string;
 }
 
@@ -76,6 +82,9 @@ export interface Order {
   customer_name: string | null;
   note: string | null;
   total_cents: number;
+  /** true = triagem geo flagrou; garçom confirma setando confirmed_at. */
+  needs_confirmation: boolean;
+  confirmed_at: string | null;
   created_at: string;
   updated_at: string;
 }
