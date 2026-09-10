@@ -15,6 +15,9 @@ export const ERROR_CODES = {
   ITEM_UNAVAILABLE: "ITEM_UNAVAILABLE",
   SESSION_EXPIRED: "SESSION_EXPIRED",
   TABLE_ORDER_LIMIT: "TABLE_ORDER_LIMIT",
+  IP_RATE_LIMIT: "IP_RATE_LIMIT",
+  IDEMPOTENCY_CONFLICT: "IDEMPOTENCY_CONFLICT",
+  CONFIRMATION_REQUIRED: "ORDER_CONFIRMATION_REQUIRED",
   INTERNAL: "INTERNAL_ERROR",
 } as const;
 
@@ -31,6 +34,9 @@ const HTTP_STATUS: Record<ErrorCode, number> = {
   [ERROR_CODES.ITEM_UNAVAILABLE]: 422,
   [ERROR_CODES.SESSION_EXPIRED]: 410,
   [ERROR_CODES.TABLE_ORDER_LIMIT]: 429,
+  [ERROR_CODES.IP_RATE_LIMIT]: 429,
+  [ERROR_CODES.IDEMPOTENCY_CONFLICT]: 409,
+  [ERROR_CODES.CONFIRMATION_REQUIRED]: 422,
   [ERROR_CODES.INTERNAL]: 500,
 };
 
@@ -65,6 +71,14 @@ export function errorResponseBody(error: AppError) {
 
 /** Exceções sinalizadas pelas funções Postgres → erro de domínio + mensagem pt-BR. */
 const DB_ERROR_MAP: Record<string, { code: ErrorCode; message: string }> = {
+  IDEMPOTENCY_CONFLICT: {
+    code: ERROR_CODES.IDEMPOTENCY_CONFLICT,
+    message: "Esta tentativa já foi usada para outro pedido. Reabra o carrinho.",
+  },
+  ORDER_CONFIRMATION_REQUIRED: {
+    code: ERROR_CODES.CONFIRMATION_REQUIRED,
+    message: "Confirme a mesa antes de iniciar o preparo.",
+  },
   TABLE_NOT_FOUND: {
     code: ERROR_CODES.NOT_FOUND,
     message: "Mesa não encontrada ou inativa.",

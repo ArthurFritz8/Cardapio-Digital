@@ -13,6 +13,7 @@ import { useEffect, useRef } from "react";
 import { cn } from "@/components/ui";
 import { useOrderStatus } from "@/hooks/useOrderStatus";
 import { formatCents } from "@/lib/money";
+import { ORDER_READY_VIBRATION_MS } from "@/lib/constants";
 import type { OrderStatus } from "@/types/domain";
 
 const TIMELINE: Array<{
@@ -40,12 +41,12 @@ export function OrderStatusView({ orderId }: { orderId: string }) {
       typeof navigator !== "undefined" &&
       "vibrate" in navigator
     ) {
-      navigator.vibrate(200);
+      navigator.vibrate(ORDER_READY_VIBRATION_MS);
     }
     prevStatusRef.current = order.status;
   }, [order]);
 
-  if (error) {
+  if (error && !order) {
     return (
       <main className="flex min-h-dvh items-center justify-center p-6">
         <p className="text-center text-neutral-600 dark:text-neutral-400">
@@ -79,6 +80,12 @@ export function OrderStatusView({ orderId }: { orderId: string }) {
           Mesa {order.table_label} · {formatCents(order.total_cents)}
         </p>
       </header>
+
+      {error ? (
+        <p role="status" className="mb-4 rounded-xl bg-amber-100 p-3 text-sm text-amber-900">
+          {error} O status exibido é a última atualização recebida.
+        </p>
+      ) : null}
 
       {isCancelled ? (
         <div className="mb-6 flex items-center gap-3 rounded-2xl bg-red-50 p-4 text-red-800 dark:bg-red-950 dark:text-red-200">

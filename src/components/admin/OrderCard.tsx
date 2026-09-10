@@ -14,6 +14,7 @@ import type { OrderStatus } from "@/types/domain";
 interface OrderCardProps {
   order: OwnerOrder;
   now: number;
+  busy?: boolean;
   onAdvance: (order: OwnerOrder, next: OrderStatus) => void;
   onConfirmTable: (order: OwnerOrder) => void;
   onRequestCancel: (order: OwnerOrder) => void;
@@ -28,6 +29,7 @@ const AGE_CLASSES = {
 export function OrderCard({
   order,
   now,
+  busy = false,
   onAdvance,
   onConfirmTable,
   onRequestCancel,
@@ -90,7 +92,7 @@ export function OrderCard({
 
       <p className="mb-3 text-sm font-bold">{formatCents(order.total_cents)}</p>
 
-      <div className="flex flex-col gap-2">
+      <fieldset disabled={busy} aria-busy={busy} className="flex min-w-0 flex-col gap-2">
         {awaiting ? (
           <>
             <Button
@@ -145,7 +147,7 @@ export function OrderCard({
             ) : null}
           </>
         )}
-      </div>
+      </fieldset>
     </article>
   );
 }

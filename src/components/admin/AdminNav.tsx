@@ -25,7 +25,7 @@ export function AdminNav() {
             key={href}
             href={href}
             className={cn(
-              "flex shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium",
+              "flex min-h-11 shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium",
               active
                 ? "bg-brand-500 text-white"
                 : "text-neutral-600 hover:bg-neutral-100 dark:text-neutral-400 dark:hover:bg-neutral-800",

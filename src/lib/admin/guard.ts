@@ -9,20 +9,22 @@ import type { Establishment } from "@/types/domain";
  * por dono (o primeiro); multi-loja fica para ADR futuro.
  */
 export const getOwnerContext = cache(async () => {
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
   if (!user) redirect("/login");
 
-  const { data: establishment } = await supabase
+  const { data: establishment, error } = await supabase
     .from("establishments")
     .select("*")
     .eq("owner_id", user.id)
     .order("created_at", { ascending: true })
     .limit(1)
     .maybeSingle<Establishment>();
+
+  if (error) throw new Error("Não foi possível carregar o estabelecimento. Tente novamente.");
 
   return { user, establishment: establishment ?? null, supabase };
 });

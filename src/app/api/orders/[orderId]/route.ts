@@ -2,12 +2,11 @@ import { NextResponse } from "next/server";
 import {
   AppError,
   ERROR_CODES,
-  errorResponseBody,
-  toAppError,
 } from "@/lib/errors";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { uuidSchema } from "@/schemas/common";
 import type { OrderStatus } from "@/types/domain";
+import { apiErrorResponse, PRIVATE_RESPONSE_HEADERS } from "@/lib/http";
 
 export const dynamic = "force-dynamic";
 
@@ -35,10 +34,10 @@ export interface PublicOrder {
  */
 export async function GET(
   _request: Request,
-  { params }: { params: { orderId: string } },
+  { params }: { params: Promise<{ orderId: string }> },
 ) {
   try {
-    const parsed = uuidSchema.safeParse(params.orderId);
+    const parsed = uuidSchema.safeParse((await params).orderId);
     if (!parsed.success) {
       throw new AppError(ERROR_CODES.VALIDATION, "Pedido inválido.");
     }
@@ -74,11 +73,8 @@ export async function GET(
       items: data.order_items ?? [],
     };
 
-    return NextResponse.json({ order });
+    return NextResponse.json({ order }, { headers: PRIVATE_RESPONSE_HEADERS });
   } catch (error) {
-    const appError = toAppError(error);
-    return NextResponse.json(errorResponseBody(appError), {
-      status: appError.status,
-    });
+    return apiErrorResponse(error);
   }
 }

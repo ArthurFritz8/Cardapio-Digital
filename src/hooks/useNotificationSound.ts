@@ -19,13 +19,25 @@ export function useNotificationSound() {
     } catch {
       // storage indisponível — mantém default ligado
     }
+    return () => {
+      const ctx = ctxRef.current;
+      ctxRef.current = null;
+      if (ctx) {
+        ctx.onstatechange = null;
+        void ctx.close().catch(() => undefined);
+      }
+    };
   }, []);
 
   /** Deve ser chamado num gesto do usuário (clique) para liberar o áudio. */
   const unlock = useCallback(() => {
     try {
       ctxRef.current ??= new AudioContext();
-      void ctxRef.current.resume().then(() => setUnlocked(true));
+      const ctx = ctxRef.current;
+      ctx.onstatechange = () => setUnlocked(ctx.state === "running");
+      void ctx.resume()
+        .then(() => setUnlocked(ctx.state === "running"))
+        .catch(() => setUnlocked(false));
     } catch {
       // Web Audio indisponível — painel funciona sem som
     }
@@ -56,6 +68,7 @@ export function useNotificationSound() {
       gain.gain.exponentialRampToValueAtTime(0.3, start + 0.02);
       gain.gain.exponentialRampToValueAtTime(0.001, start + duration);
       osc.connect(gain).connect(ctx.destination);
+      osc.onended = () => { osc.disconnect(); gain.disconnect(); };
       osc.start(start);
       osc.stop(start + duration + 0.05);
     },

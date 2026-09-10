@@ -46,8 +46,6 @@ export interface Table {
   establishment_id: string;
   label: string;
   is_active: boolean;
-  session_token: string | null;
-  session_expires_at: string | null;
   created_at: string;
 }
 

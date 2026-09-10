@@ -1,5 +1,6 @@
+import "server-only";
 import { createClient } from "@supabase/supabase-js";
-import { getServerEnv } from "@/lib/env";
+import { getServerEnv } from "@/lib/server-env";
 
 /**
  * Client ADMIN (service_role) — BYPASSA RLS.

@@ -1,4 +1,5 @@
-import { CART_TTL_HOURS } from "./constants";
+import { z } from "zod";
+import { CART_TTL_HOURS, MAX_ITEM_NOTE_LENGTH, MAX_ITEM_QUANTITY, MAX_ORDER_ITEMS, MAX_PRICE_CENTS } from "./constants";
 
 /**
  * Carrinho do cliente anônimo. Nome/preço aqui são SNAPSHOT ESTIMADO
@@ -19,7 +20,15 @@ interface StoredCart {
   created_at: string;
 }
 
-const MAX_QUANTITY = 50;
+const storedCartSchema = z.object({
+  created_at: z.string(),
+  items: z.array(z.object({
+    menu_item_id: z.string().uuid(), name: z.string().min(1).max(80),
+    price_cents: z.number().int().min(0).max(MAX_PRICE_CENTS),
+    quantity: z.number().int().min(1).max(MAX_ITEM_QUANTITY),
+    note: z.string().max(MAX_ITEM_NOTE_LENGTH).optional(),
+  })).max(MAX_ORDER_ITEMS),
+});
 
 const storageKey = (tableId: string) => `cd.cart.${tableId}`;
 
@@ -28,7 +37,7 @@ const storageKey = (tableId: string) => `cd.cart.${tableId}`;
 export function isCartExpired(createdAt: string, now = Date.now()): boolean {
   const created = new Date(createdAt).getTime();
   if (!Number.isFinite(created)) return true;
-  return now - created > CART_TTL_HOURS * 60 * 60 * 1000;
+  return created > now || now - created >= CART_TTL_HOURS * 60 * 60 * 1000;
 }
 
 export function cartTotalCents(items: CartItem[]): number {
@@ -48,11 +57,11 @@ export function addCartItem(
   if (existing) {
     return items.map((i) =>
       i.menu_item_id === item.menu_item_id
-        ? { ...i, quantity: Math.min(i.quantity + 1, MAX_QUANTITY) }
+        ? { ...i, quantity: Math.min(i.quantity + 1, MAX_ITEM_QUANTITY) }
         : i,
     );
   }
-  return [...items, { ...item, quantity: 1 }];
+  return items.length >= MAX_ORDER_ITEMS ? items : [...items, { ...item, quantity: 1 }];
 }
 
 /** Ajusta quantidade (delta ±1); em 0, remove o item. */
@@ -64,7 +73,7 @@ export function changeCartQuantity(
   return items
     .map((i) =>
       i.menu_item_id === menuItemId
-        ? { ...i, quantity: Math.min(Math.max(i.quantity + delta, 0), MAX_QUANTITY) }
+        ? { ...i, quantity: Math.min(Math.max(i.quantity + delta, 0), MAX_ITEM_QUANTITY) }
         : i,
     )
     .filter((i) => i.quantity > 0);
@@ -75,7 +84,7 @@ export function setCartItemNote(
   menuItemId: string,
   note: string,
 ): CartItem[] {
-  const trimmed = note.trim().slice(0, 200);
+  const trimmed = note.trim().slice(0, MAX_ITEM_NOTE_LENGTH);
   return items.map((i) =>
     i.menu_item_id === menuItemId
       ? { ...i, note: trimmed || undefined }
@@ -98,16 +107,15 @@ export function loadCart(tableId: string): CartItem[] {
   try {
     const raw = window.localStorage.getItem(storageKey(tableId));
     if (!raw) return [];
-    const stored = JSON.parse(raw) as Partial<StoredCart>;
+    const parsed = storedCartSchema.safeParse(JSON.parse(raw));
     if (
-      !Array.isArray(stored.items) ||
-      typeof stored.created_at !== "string" ||
-      isCartExpired(stored.created_at)
+      !parsed.success || isCartExpired(parsed.data.created_at) ||
+      new Set(parsed.data.items.map((item) => item.menu_item_id)).size !== parsed.data.items.length
     ) {
       window.localStorage.removeItem(storageKey(tableId));
       return [];
     }
-    return stored.items;
+    return parsed.data.items;
   } catch {
     return [];
   }
@@ -121,9 +129,11 @@ export function saveCart(tableId: string, items: CartItem[]): void {
       return;
     }
     const existing = window.localStorage.getItem(storageKey(tableId));
-    const createdAt =
-      (existing ? (JSON.parse(existing) as StoredCart).created_at : null) ??
-      new Date().toISOString();
+    let createdAt = new Date().toISOString();
+    try {
+      const parsed = storedCartSchema.safeParse(existing ? JSON.parse(existing) : null);
+      if (parsed.success && !isCartExpired(parsed.data.created_at)) createdAt = parsed.data.created_at;
+    } catch { /* cache corrompido é substituído pela edição válida */ }
     const stored: StoredCart = { items, created_at: createdAt };
     window.localStorage.setItem(storageKey(tableId), JSON.stringify(stored));
   } catch {

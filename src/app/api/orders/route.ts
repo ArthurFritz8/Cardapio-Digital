@@ -3,13 +3,13 @@ import { MAX_ACTIVE_ORDERS_PER_TABLE } from "@/lib/constants";
 import {
   AppError,
   ERROR_CODES,
-  errorResponseBody,
   fromDbError,
-  toAppError,
 } from "@/lib/errors";
 import { shouldRequireManualConfirmation } from "@/lib/geo";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createOrderSchema } from "@/schemas/order";
+import { apiErrorResponse, PRIVATE_RESPONSE_HEADERS, readOrderBody } from "@/lib/http";
+import { enforceIpRateLimit } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -26,7 +26,7 @@ interface EstablishmentGeoRow {
  */
 export async function POST(request: Request) {
   try {
-    const body: unknown = await request.json().catch(() => null);
+    const body = await readOrderBody(request);
     const parsed = createOrderSchema.safeParse(body);
     if (!parsed.success) {
       throw new AppError(
@@ -38,6 +38,7 @@ export async function POST(request: Request) {
     const input = parsed.data;
 
     const admin = createSupabaseAdminClient();
+    await enforceIpRateLimit(request, admin, "orders");
 
     // Coordenadas do estabelecimento p/ triagem geo (heurística, não segurança)
     const { data: tableRow, error: tableError } = await admin
@@ -75,15 +76,13 @@ export async function POST(request: Request) {
       p_note: input.note ?? null,
       p_needs_confirmation: needsConfirmation,
       p_max_active_orders: MAX_ACTIVE_ORDERS_PER_TABLE,
+      p_request_id: input.request_id,
     });
 
     if (rpcError) throw fromDbError(rpcError.message);
 
-    return NextResponse.json({ order }, { status: 201 });
+    return NextResponse.json({ order }, { status: 201, headers: PRIVATE_RESPONSE_HEADERS });
   } catch (error) {
-    const appError = toAppError(error);
-    return NextResponse.json(errorResponseBody(appError), {
-      status: appError.status,
-    });
+    return apiErrorResponse(error);
   }
 }

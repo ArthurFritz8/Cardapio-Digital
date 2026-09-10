@@ -42,10 +42,14 @@ export async function middleware(request: NextRequest) {
   const isAuthPage = AUTH_PAGES.some((p) => path.startsWith(p));
 
   if (isProtected && !user) {
-    return NextResponse.redirect(new URL("/login", request.url));
+    const redirect = NextResponse.redirect(new URL("/login", request.url));
+    response.cookies.getAll().forEach((cookie) => redirect.cookies.set(cookie));
+    return redirect;
   }
   if (isAuthPage && user) {
-    return NextResponse.redirect(new URL("/admin", request.url));
+    const redirect = NextResponse.redirect(new URL("/admin", request.url));
+    response.cookies.getAll().forEach((cookie) => redirect.cookies.set(cookie));
+    return redirect;
   }
 
   return response;

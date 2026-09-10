@@ -2,20 +2,11 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { parseMenuCache, type PublicMenuData } from "@/lib/menu-cache";
+import { ORDER_REQUEST_TIMEOUT_MS } from "@/lib/constants";
 import type { Category, MenuItem } from "@/types/domain";
 
-export interface PublicMenuData {
-  table: { id: string; label: string };
-  establishment: {
-    id: string;
-    name: string;
-    description: string | null;
-    logo_url: string | null;
-    is_open: boolean;
-  };
-  categories: Category[];
-  items: MenuItem[];
-}
+export type { PublicMenuData } from "@/lib/menu-cache";
 
 const cacheKey = (tableId: string) => `cd.menu.${tableId}`;
 
@@ -29,8 +20,13 @@ export function useMenu(tableId: string) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const hasDataRef = useRef(false);
+  const requestRef = useRef<Promise<PublicMenuData | null> | null>(null);
 
-  const refresh = useCallback(async (): Promise<PublicMenuData | null> => {
+  const refresh = useCallback((): Promise<PublicMenuData | null> => {
+    if (requestRef.current) return requestRef.current;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), ORDER_REQUEST_TIMEOUT_MS);
+    const request = (async (): Promise<PublicMenuData | null> => {
     try {
       const supabase = createSupabaseBrowserClient();
 
@@ -40,12 +36,19 @@ export function useMenu(tableId: string) {
           "id, label, is_active, establishment:establishments(id, name, description, logo_url, is_open)",
         )
         .eq("id", tableId)
+        .abortSignal(controller.signal)
         .maybeSingle();
       if (tableError) throw tableError;
 
       if (!table || !table.is_active) {
+        hasDataRef.current = false;
         setError("Mesa não encontrada ou inativa. Confira o QR Code.");
         setMenu(null);
+        try {
+          window.localStorage.removeItem(cacheKey(tableId));
+        } catch {
+          // A remoção do cache não interfere na invalidação em memória.
+        }
         return null;
       }
 
@@ -64,6 +67,7 @@ export function useMenu(tableId: string) {
             .eq("establishment_id", establishment.id)
             .eq("is_active", true)
             .order("sort_order")
+            .abortSignal(controller.signal)
             .returns<Category[]>(),
           supabase
             .from("menu_items")
@@ -71,6 +75,7 @@ export function useMenu(tableId: string) {
             .eq("establishment_id", establishment.id)
             .eq("is_available", true)
             .order("sort_order")
+            .abortSignal(controller.signal)
             .returns<MenuItem[]>(),
         ]);
       if (catError || itemError) throw catError ?? itemError;
@@ -100,15 +105,22 @@ export function useMenu(tableId: string) {
       }
       return null;
     } finally {
+      clearTimeout(timeout);
       setIsLoading(false);
     }
+    })();
+    requestRef.current = request;
+    void request.finally(() => {
+      if (requestRef.current === request) requestRef.current = null;
+    });
+    return request;
   }, [tableId]);
 
   useEffect(() => {
     try {
-      const raw = window.localStorage.getItem(cacheKey(tableId));
-      if (raw) {
-        setMenu(JSON.parse(raw) as PublicMenuData);
+      const cached = parseMenuCache(window.localStorage.getItem(cacheKey(tableId)), tableId);
+      if (cached) {
+        setMenu(cached);
         hasDataRef.current = true;
         setIsLoading(false);
       }

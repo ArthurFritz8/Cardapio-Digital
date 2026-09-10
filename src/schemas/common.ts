@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { MAX_PRICE_CENTS } from "@/lib/constants";
 
 /** Schemas compartilhados front + back (single source of truth). */
 
@@ -18,4 +19,4 @@ export const priceCentsSchema = z
   .number()
   .int("Preço deve ser inteiro (centavos)")
   .min(0, "Preço não pode ser negativo")
-  .max(10_000_000, "Preço acima do limite permitido");
+  .max(MAX_PRICE_CENTS, "Preço acima do limite permitido");

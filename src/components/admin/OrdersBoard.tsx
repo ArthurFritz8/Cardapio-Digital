@@ -1,7 +1,7 @@
 "use client";
 
 import { History, Volume2, VolumeX } from "lucide-react";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { OrderCard } from "@/components/admin/OrderCard";
 import { Button, cn } from "@/components/ui";
 import { useNotificationSound } from "@/hooks/useNotificationSound";
@@ -10,6 +10,7 @@ import {
   type ConnectionState,
 } from "@/hooks/useOrdersRealtime";
 import { formatCents } from "@/lib/money";
+import { ADMIN_TOAST_DURATION_MS, ORDER_REQUEST_TIMEOUT_MS } from "@/lib/constants";
 import {
   appendCancelReason,
   boardColumn,
@@ -18,7 +19,7 @@ import {
   type OwnerOrder,
 } from "@/lib/order-board";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
-import type { OrderStatus } from "@/types/domain";
+import type { Order, OrderStatus } from "@/types/domain";
 
 const COLUMNS: Array<{ key: BoardColumn; title: string; accent?: boolean }> = [
   { key: "awaiting", title: "Aguardando confirmação", accent: true },
@@ -33,7 +34,7 @@ const CONNECTION_LABELS: Record<
 > = {
   live: { label: "Ao vivo", dot: "bg-green-500" },
   reconnecting: { label: "Reconectando…", dot: "bg-amber-500" },
-  offline: { label: "Offline — atualizando a cada 30s", dot: "bg-red-500" },
+  offline: { label: "Sem conexão ao vivo — tentando sincronizar", dot: "bg-red-500" },
 };
 
 const CANCEL_REASONS = [
@@ -63,7 +64,7 @@ export function OrdersBoard({ establishmentId }: { establishmentId: string }) {
     [sound],
   );
 
-  const { orders, connection, now, isLoading, refetchOne, applyLocal } =
+  const { orders, connection, error: syncError, now, isLoading, refetchOne, applyLocal } =
     useOrdersRealtime(establishmentId, onNewOrder);
 
   const [toast, setToast] = useState<string | null>(null);
@@ -72,51 +73,72 @@ export function OrdersBoard({ establishmentId }: { establishmentId: string }) {
   const [cancelling, setCancelling] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [history, setHistory] = useState<HistoryOrder[] | null>(null);
+  const [historyError, setHistoryError] = useState<string | null>(null);
+  const [busyIds, setBusyIds] = useState<Set<string>>(new Set());
+  const busyRef = useRef(new Set<string>());
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => () => {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+  }, []);
 
   const showError = useCallback((message: string) => {
     setToast(message);
-    setTimeout(() => setToast(null), 5000);
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = setTimeout(() => setToast(null), ADMIN_TOAST_DURATION_MS);
   }, []);
 
-  async function advance(order: OwnerOrder, next: OrderStatus) {
-    applyLocal({ ...order, status: next });
-    const { error } = await supabase
-      .from("orders")
-      .update({ status: next })
-      .eq("id", order.id);
-    if (error) {
+  async function updateOrder(
+    order: OwnerOrder,
+    patch: Partial<Pick<Order, "status" | "confirmed_at" | "note">>,
+    message: string,
+  ) {
+    if (busyRef.current.has(order.id)) return;
+    busyRef.current.add(order.id);
+    setBusyIds(new Set(busyRef.current));
+    applyLocal({ ...order, ...patch });
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), ORDER_REQUEST_TIMEOUT_MS);
+    try {
+      const { data, error } = await supabase
+        .from("orders")
+        .update(patch)
+        .eq("id", order.id)
+        .eq("status", order.status)
+        .select("id")
+        .abortSignal(controller.signal)
+        .maybeSingle();
+      if (error || !data) throw error ?? new Error("Pedido alterado em outro dispositivo.");
+    } catch {
+      // Se o refetch também falhar offline, preserva o card original em memória.
+      applyLocal(order);
+      showError(message);
+    } finally {
+      clearTimeout(timeout);
       await refetchOne(order.id);
-      showError(`Não foi possível atualizar a ${order.table_label}. Tente de novo.`);
+      busyRef.current.delete(order.id);
+      setBusyIds(new Set(busyRef.current));
     }
+  }
+
+  async function advance(order: OwnerOrder, next: OrderStatus) {
+    await updateOrder(order, { status: next },
+      `Não foi possível atualizar a ${order.table_label}. Tente de novo.`);
   }
 
   async function confirmTable(order: OwnerOrder) {
     const confirmedAt = new Date().toISOString();
-    applyLocal({ ...order, confirmed_at: confirmedAt });
-    const { error } = await supabase
-      .from("orders")
-      .update({ confirmed_at: confirmedAt })
-      .eq("id", order.id);
-    if (error) {
-      await refetchOne(order.id);
-      showError("Não foi possível confirmar a mesa. Tente de novo.");
-    }
+    await updateOrder(order, { confirmed_at: confirmedAt },
+      "Não foi possível confirmar a mesa. Tente de novo.");
   }
 
   async function cancelOrder() {
-    if (!cancelTarget) return;
+    if (!cancelTarget || busyRef.current.has(cancelTarget.id)) return;
     setCancelling(true);
     const order = cancelTarget;
     const note = appendCancelReason(order.note, cancelReason);
-    applyLocal({ ...order, status: "cancelled" });
-    const { error } = await supabase
-      .from("orders")
-      .update({ status: "cancelled", note })
-      .eq("id", order.id);
-    if (error) {
-      await refetchOne(order.id);
-      showError(`Não foi possível cancelar o pedido da ${order.table_label}.`);
-    }
+    await updateOrder(order, { status: "cancelled", note },
+      `Não foi possível cancelar o pedido da ${order.table_label}.`);
     setCancelling(false);
     setCancelTarget(null);
     setCancelReason("");
@@ -126,9 +148,11 @@ export function OrdersBoard({ establishmentId }: { establishmentId: string }) {
     const opening = !historyOpen;
     setHistoryOpen(opening);
     if (!opening) return;
+    setHistory(null);
+    setHistoryError(null);
     const startOfDay = new Date();
     startOfDay.setHours(0, 0, 0, 0);
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("orders")
       .select("id, status, total_cents, created_at, tables ( label )")
       .eq("establishment_id", establishmentId)
@@ -136,7 +160,8 @@ export function OrdersBoard({ establishmentId }: { establishmentId: string }) {
       .gte("created_at", startOfDay.toISOString())
       .order("created_at", { ascending: false })
       .returns<HistoryOrder[]>();
-    setHistory(data ?? []);
+    if (error) setHistoryError("Não foi possível carregar o histórico. Feche e tente novamente.");
+    else setHistory(data ?? []);
   }
 
   const connectionInfo = CONNECTION_LABELS[connection];
@@ -144,7 +169,7 @@ export function OrdersBoard({ establishmentId }: { establishmentId: string }) {
   return (
     <div>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2 text-sm">
+        <div role="status" className="flex items-center gap-2 text-sm">
           <span
             className={cn("h-2.5 w-2.5 rounded-full", connectionInfo.dot)}
             aria-hidden
@@ -183,15 +208,23 @@ export function OrdersBoard({ establishmentId }: { establishmentId: string }) {
       ) : null}
 
       {toast ? (
-        <p className="mb-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
+        <p role="alert" className="mb-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
           {toast}
+        </p>
+      ) : null}
+
+      {syncError ? (
+        <p role="alert" className="mb-4 rounded-xl bg-amber-100 px-4 py-3 text-sm text-amber-900">
+          {syncError} Os pedidos exibidos podem estar desatualizados.
         </p>
       ) : null}
 
       {historyOpen ? (
         <section className="mb-6 rounded-2xl border border-neutral-200 p-4 dark:border-neutral-800">
           <h2 className="mb-3 text-sm font-bold">Finalizados hoje</h2>
-          {history === null ? (
+          {historyError ? (
+            <p role="alert" className="text-sm text-red-600">{historyError}</p>
+          ) : history === null ? (
             <p className="text-sm text-neutral-500">Carregando…</p>
           ) : history.length === 0 ? (
             <p className="text-sm text-neutral-500">
@@ -276,6 +309,7 @@ export function OrdersBoard({ establishmentId }: { establishmentId: string }) {
                         key={order.id}
                         order={order}
                         now={now}
+                        busy={busyIds.has(order.id)}
                         onAdvance={advance}
                         onConfirmTable={confirmTable}
                         onRequestCancel={setCancelTarget}
@@ -294,6 +328,7 @@ export function OrdersBoard({ establishmentId }: { establishmentId: string }) {
           className="fixed inset-0 z-30 flex items-center justify-center p-4"
           role="dialog"
           aria-modal="true"
+          aria-labelledby="cancel-order-title"
         >
           <button
             aria-label="Fechar"
@@ -301,7 +336,7 @@ export function OrdersBoard({ establishmentId }: { establishmentId: string }) {
             className="absolute inset-0 bg-black/50"
           />
           <div className="relative w-full max-w-sm rounded-2xl bg-white p-5 dark:bg-neutral-950">
-            <h2 className="mb-1 text-lg font-bold">
+            <h2 id="cancel-order-title" className="mb-1 text-lg font-bold">
               {isAwaitingConfirmation(cancelTarget) ? "Recusar" : "Cancelar"}{" "}
               pedido da {cancelTarget.table_label}?
             </h2>

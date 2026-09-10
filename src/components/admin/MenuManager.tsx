@@ -200,7 +200,7 @@ export function MenuManager({
                 </>
               ) : (
                 <>
-                  <h3 className="flex-1 truncate font-semibold">
+                  <h3 className="min-w-0 flex-1 truncate font-semibold">
                     {category.name}
                     {!category.is_active && (
                       <span className="ml-2 text-xs font-normal text-neutral-500">
@@ -335,7 +335,7 @@ function IconButton({
     <button
       aria-label={label}
       title={label}
-      className="rounded-lg p-2 text-neutral-500 hover:bg-neutral-100 disabled:opacity-30 dark:hover:bg-neutral-800"
+      className="flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-lg p-2 text-neutral-500 hover:bg-neutral-100 disabled:opacity-30 dark:hover:bg-neutral-800"
       {...props}
     >
       {children}

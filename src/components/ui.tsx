@@ -5,7 +5,7 @@ export function cn(...classes: Array<string | false | null | undefined>) {
 }
 
 const inputBase =
-  "w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm " +
+  "min-h-11 w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-base sm:text-sm " +
   "focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 " +
   "disabled:opacity-50 dark:border-neutral-700 dark:bg-neutral-900";
 
@@ -55,7 +55,7 @@ export function Button({
     <button
       type={type}
       className={cn(
-        "inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60",
+        "inline-flex min-h-11 min-w-11 items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60",
         buttonVariants[variant],
         className,
       )}

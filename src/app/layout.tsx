@@ -9,6 +9,10 @@ export const metadata: Metadata = {
   description:
     "Cardápio digital para bares e restaurantes: escaneie o QR Code da mesa, veja o menu e faça seu pedido.",
   applicationName: "Cardápio Digital",
+  icons: {
+    icon: "/icons/icon-192.png",
+    apple: "/icons/apple-touch-icon.png",
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",

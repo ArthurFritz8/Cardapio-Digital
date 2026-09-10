@@ -20,6 +20,7 @@ export function loadTableSession(tableId: string): StoredTableSession | null {
     if (
       typeof session.token !== "string" ||
       typeof session.expiresAt !== "string" ||
+      !Number.isFinite(new Date(session.expiresAt).getTime()) ||
       new Date(session.expiresAt).getTime() <= Date.now()
     ) {
       window.localStorage.removeItem(storageKey(tableId));

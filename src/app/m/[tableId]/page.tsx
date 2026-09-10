@@ -4,11 +4,12 @@ import { uuidSchema } from "@/schemas/common";
 
 export const metadata = { title: "Cardápio" };
 
-export default function TableMenuPage({
+export default async function TableMenuPage({
   params,
 }: {
-  params: { tableId: string };
+  params: Promise<{ tableId: string }>;
 }) {
-  if (!uuidSchema.safeParse(params.tableId).success) notFound();
-  return <PublicMenu tableId={params.tableId} />;
+  const { tableId } = await params;
+  if (!uuidSchema.safeParse(tableId).success) notFound();
+  return <PublicMenu key={tableId} tableId={tableId} />;
 }

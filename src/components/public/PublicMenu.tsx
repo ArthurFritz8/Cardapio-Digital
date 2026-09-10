@@ -8,6 +8,7 @@ import { useCart } from "@/hooks/useCart";
 import { useMenu } from "@/hooks/useMenu";
 import { useOnline } from "@/hooks/useOnline";
 import { formatCents } from "@/lib/money";
+import { CART_FEEDBACK_DURATION_MS } from "@/lib/constants";
 import type { MenuItem } from "@/types/domain";
 
 export function PublicMenu({ tableId }: { tableId: string }) {
@@ -18,8 +19,26 @@ export function PublicMenu({ tableId }: { tableId: string }) {
   const [fabBump, setFabBump] = useState(false);
 
   useEffect(() => {
+    if (!("serviceWorker" in navigator)) return;
+    let warmed = false;
+    const warmShell = () => {
+      if (warmed || !navigator.serviceWorker.controller) return;
+      warmed = true;
+      // A primeira navegação ocorre antes da instalação do SW; guarda o HTML
+      // público assim que ele assume o controle, sem exigir um segundo scan.
+      void fetch(`/m/${tableId}`, {
+        credentials: "omit",
+        headers: { "X-Public-Menu-Shell": "1" },
+      }).catch(() => undefined);
+    };
+    warmShell();
+    navigator.serviceWorker.addEventListener("controllerchange", warmShell);
+    return () => navigator.serviceWorker.removeEventListener("controllerchange", warmShell);
+  }, [tableId]);
+
+  useEffect(() => {
     if (!fabBump) return;
-    const timer = setTimeout(() => setFabBump(false), 300);
+    const timer = setTimeout(() => setFabBump(false), CART_FEEDBACK_DURATION_MS);
     return () => clearTimeout(timer);
   }, [fabBump]);
 
@@ -92,7 +111,7 @@ export function PublicMenu({ tableId }: { tableId: string }) {
             <a
               key={category.id}
               href={`#cat-${category.id}`}
-              className="shrink-0 rounded-full border border-neutral-300 px-3 py-1 text-sm dark:border-neutral-700"
+              className="flex min-h-11 shrink-0 items-center rounded-full border border-neutral-300 px-3 py-1 text-sm dark:border-neutral-700"
             >
               {category.name}
             </a>
@@ -147,7 +166,7 @@ export function PublicMenu({ tableId }: { tableId: string }) {
                         onClick={() => handleAdd(item)}
                         disabled={!establishment.is_open}
                         aria-label={`Adicionar ${item.name}`}
-                        className="h-9 w-9 shrink-0 self-center rounded-full bg-brand-500 text-white transition-transform active:scale-90 disabled:opacity-40"
+                        className="h-11 w-11 shrink-0 self-center rounded-full bg-brand-500 text-white transition-transform active:scale-90 disabled:opacity-40"
                       >
                         <Plus className="mx-auto h-5 w-5" aria-hidden />
                       </button>

@@ -2,12 +2,14 @@
 
 import { Loader2, Minus, Plus, X } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Button, Textarea } from "@/components/ui";
 import type { CartApi } from "@/hooks/useCart";
 import { useGeolocation } from "@/hooks/useGeolocation";
-import { clearCart, type CartItem } from "@/lib/cart";
+import { type CartItem } from "@/lib/cart";
 import { formatCents } from "@/lib/money";
+import { MAX_CUSTOMER_NAME_LENGTH, MAX_ITEM_NOTE_LENGTH, ORDER_REQUEST_TIMEOUT_MS } from "@/lib/constants";
+import { clearOrderAttempt, loadOrderAttempt, orderAttempt } from "@/lib/order-attempt";
 import {
   clearTableSession,
   loadTableSession,
@@ -35,9 +37,12 @@ async function ensureSession(tableId: string): Promise<string> {
 
   const response = await fetch(`/api/tables/${tableId}/session`, {
     method: "POST",
+    cache: "no-store",
+    signal: AbortSignal.timeout(ORDER_REQUEST_TIMEOUT_MS),
   });
   if (!response.ok) {
-    throw new Error("Não foi possível iniciar a sessão da mesa.");
+    const body = (await response.json().catch(() => ({}))) as ApiErrorBody;
+    throw new Error(body.error?.message ?? "Não foi possível iniciar a sessão da mesa.");
   }
   const body = (await response.json()) as {
     session: { session_token: string; session_expires_at: string };
@@ -60,7 +65,9 @@ export function CartSheet({
 }: CartSheetProps) {
   const router = useRouter();
   const geolocation = useGeolocation();
-  const [customerName, setCustomerName] = useState("");
+  const [customerName, setCustomerName] = useState(() => loadOrderAttempt(tableId)?.customerName ?? "");
+  const sendingRef = useRef(false);
+  const attemptRef = useRef<ReturnType<typeof orderAttempt> | null>(null);
   const [noteOpenFor, setNoteOpenFor] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -71,28 +78,35 @@ export function CartSheet({
     online && establishmentOpen && cart.items.length > 0 && !sending;
 
   async function submitOrder(retrying = false): Promise<void> {
+    const payload = {
+      table_id: tableId,
+      customer_name: customerName.trim() || undefined,
+      items: cart.items.map((i: CartItem) => ({
+        menu_item_id: i.menu_item_id, quantity: i.quantity, note: i.note,
+      })),
+    };
+    const attempt = orderAttempt(tableId, payload, customerName, attemptRef.current);
+    attemptRef.current = attempt;
     const sessionToken = await ensureSession(tableId);
     const location = await geolocation.request();
 
     const response = await fetch("/api/orders", {
       method: "POST",
+      cache: "no-store",
+      signal: AbortSignal.timeout(ORDER_REQUEST_TIMEOUT_MS),
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        table_id: tableId,
+        ...payload,
+        request_id: attempt.id,
         session_token: sessionToken,
-        customer_name: customerName.trim() || undefined,
         location: location ?? undefined,
-        items: cart.items.map((i: CartItem) => ({
-          menu_item_id: i.menu_item_id,
-          quantity: i.quantity,
-          note: i.note,
-        })),
       }),
     });
 
     if (response.ok) {
       const body = (await response.json()) as { order: { id: string } };
-      clearCart(tableId);
+      cart.clear();
+      clearOrderAttempt(tableId);
       router.push(`/pedido/${body.order.id}`);
       return;
     }
@@ -117,33 +131,39 @@ export function CartSheet({
   }
 
   async function handleSend() {
-    if (!canSend) return;
+    if (!canSend || sendingRef.current) return;
+    sendingRef.current = true;
     setSending(true);
     setErrorMessage(null);
     try {
       await submitOrder();
     } catch (error) {
       setErrorMessage(
-        error instanceof Error ? error.message : "Erro inesperado.",
+        error instanceof Error && ["TimeoutError", "AbortError", "TypeError"].includes(error.name)
+          ? "A conexão falhou e o resultado ainda não foi confirmado. Tente enviar novamente para recuperar esta mesma tentativa."
+          : error instanceof Error ? error.message : "Erro inesperado.",
       );
+      sendingRef.current = false;
       setSending(false);
     }
   }
 
   return (
-    <div className="fixed inset-0 z-30" role="dialog" aria-modal="true">
+    <div className="fixed inset-0 z-30" role="dialog" aria-modal="true" aria-labelledby="cart-title" aria-busy={sending}>
       <button
         aria-label="Fechar carrinho"
         onClick={onClose}
+        disabled={sending}
         className="absolute inset-0 bg-black/50"
       />
       <div className="absolute inset-x-0 bottom-0 mx-auto max-h-[85dvh] max-w-lg overflow-y-auto rounded-t-3xl bg-white p-5 dark:bg-neutral-950">
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-bold">Seu pedido</h2>
+          <h2 id="cart-title" className="text-lg font-bold">Seu pedido</h2>
           <button
             onClick={onClose}
+            disabled={sending}
             aria-label="Fechar"
-            className="rounded-full p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800"
+            className="min-h-11 min-w-11 rounded-full p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800"
           >
             <X className="h-5 w-5" aria-hidden />
           </button>
@@ -169,8 +189,9 @@ export function CartSheet({
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => cart.changeQuantity(item.menu_item_id, -1)}
+                      disabled={sending}
                       aria-label={`Diminuir ${item.name}`}
-                      className="h-8 w-8 rounded-full border border-neutral-300 dark:border-neutral-700"
+                      className="h-11 w-11 rounded-full border border-neutral-300 dark:border-neutral-700"
                     >
                       <Minus className="mx-auto h-4 w-4" aria-hidden />
                     </button>
@@ -179,8 +200,9 @@ export function CartSheet({
                     </span>
                     <button
                       onClick={() => cart.changeQuantity(item.menu_item_id, 1)}
+                      disabled={sending}
                       aria-label={`Aumentar ${item.name}`}
-                      className="h-8 w-8 rounded-full border border-neutral-300 dark:border-neutral-700"
+                      className="h-11 w-11 rounded-full border border-neutral-300 dark:border-neutral-700"
                     >
                       <Plus className="mx-auto h-4 w-4" aria-hidden />
                     </button>
@@ -192,7 +214,8 @@ export function CartSheet({
                       prev === item.menu_item_id ? null : item.menu_item_id,
                     )
                   }
-                  className="mt-1 text-xs text-brand-600 underline"
+                  disabled={sending}
+                  className="mt-1 min-h-11 text-xs text-brand-600 underline"
                 >
                   {item.note ? `Obs: ${item.note}` : "Adicionar observação"}
                 </button>
@@ -204,7 +227,8 @@ export function CartSheet({
                     }
                     placeholder="Ex.: sem cebola, ponto da carne…"
                     rows={2}
-                    maxLength={200}
+                    maxLength={MAX_ITEM_NOTE_LENGTH}
+                    disabled={sending}
                     className="mt-2"
                   />
                 ) : null}
@@ -226,7 +250,8 @@ export function CartSheet({
                 id="customer-name"
                 value={customerName}
                 onChange={(e) => setCustomerName(e.target.value)}
-                maxLength={80}
+                maxLength={MAX_CUSTOMER_NAME_LENGTH}
+                disabled={sending}
                 className="w-full rounded-xl border border-neutral-300 bg-transparent px-3 py-2 text-sm dark:border-neutral-700"
               />
             </div>

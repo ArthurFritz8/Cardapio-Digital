@@ -7,7 +7,7 @@ export const metadata = { title: "Cardápio" };
 export default async function CardapioPage() {
   const { establishment, supabase } = await requireEstablishment();
 
-  const [{ data: categories }, { data: items }] = await Promise.all([
+  const [{ data: categories, error: categoryError }, { data: items, error: itemError }] = await Promise.all([
     supabase
       .from("categories")
       .select("*")
@@ -23,6 +23,8 @@ export default async function CardapioPage() {
       .order("created_at")
       .returns<MenuItem[]>(),
   ]);
+
+  if (categoryError || itemError) throw new Error("Não foi possível carregar o cardápio. Tente novamente.");
 
   return (
     <MenuManager

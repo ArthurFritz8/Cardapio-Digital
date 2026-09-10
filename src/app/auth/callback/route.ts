@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { safeAuthRedirect } from "@/lib/auth-redirect";
 
 /**
  * Callback PKCE do Supabase Auth (confirmação de email e recuperação
@@ -11,10 +12,10 @@ export async function GET(request: Request) {
   const next = searchParams.get("next") ?? "/admin";
 
   // Só permite redirect interno (anti open-redirect)
-  const safeNext = next.startsWith("/") && !next.startsWith("//") ? next : "/admin";
+  const safeNext = safeAuthRedirect(next);
 
   if (code) {
-    const supabase = createSupabaseServerClient();
+    const supabase = await createSupabaseServerClient();
     const { error } = await supabase.auth.exchangeCodeForSession(code);
     if (!error) {
       return NextResponse.redirect(`${origin}${safeNext}`);

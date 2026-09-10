@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { AppError, ERROR_CODES } from "@/lib/errors";
+import { ALLOWED_IMAGE_TYPES, JPEG_QUALITY, MAX_IMAGE_DIMENSION_PX, MAX_UPLOAD_BYTES, STORAGE_BUCKET } from "./constants";
 
 /**
  * Upload de imagens (browser). Comprime via canvas ANTES do upload:
@@ -8,11 +9,7 @@ import { AppError, ERROR_CODES } from "@/lib/errors";
  * plano Pro — compressão client-side é a alternativa custo zero.
  */
 
-export const STORAGE_BUCKET = "menu-images";
-const MAX_UPLOAD_BYTES = 2 * 1024 * 1024;
-const MAX_DIMENSION_PX = 1200;
-const JPEG_QUALITY = 0.82;
-const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"];
+export { STORAGE_BUCKET } from "./constants";
 
 export type ImageKind = "logo" | "item";
 
@@ -20,7 +17,7 @@ async function compressImage(file: File): Promise<Blob> {
   const bitmap = await createImageBitmap(file);
   const scale = Math.min(
     1,
-    MAX_DIMENSION_PX / Math.max(bitmap.width, bitmap.height),
+    MAX_IMAGE_DIMENSION_PX / Math.max(bitmap.width, bitmap.height),
   );
   const width = Math.round(bitmap.width * scale);
   const height = Math.round(bitmap.height * scale);
@@ -51,7 +48,7 @@ export async function uploadImage(
   establishmentId: string,
   kind: ImageKind,
 ): Promise<string> {
-  if (!ALLOWED_TYPES.includes(file.type)) {
+  if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
     throw new AppError(
       ERROR_CODES.VALIDATION,
       "Formato inválido. Use JPG, PNG ou WebP.",

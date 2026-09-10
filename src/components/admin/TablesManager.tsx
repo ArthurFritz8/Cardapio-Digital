@@ -3,7 +3,6 @@
 import { Download, Eye, EyeOff, Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import QRCode from "qrcode";
 import { Button, cn, ErrorText, Input } from "@/components/ui";
 import { getClientEnv } from "@/lib/env";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
@@ -24,6 +23,7 @@ function tableUrl(tableId: string): string {
 }
 
 async function downloadQrCode(table: Table) {
+  const QRCode = (await import("qrcode")).default;
   const dataUrl = await QRCode.toDataURL(tableUrl(table.id), {
     width: 1024,
     margin: 2,
@@ -114,7 +114,9 @@ export function TablesManager({ establishmentId, tables }: TablesManagerProps) {
               </div>
               <Button
                 variant="ghost"
-                onClick={() => downloadQrCode(table)}
+                onClick={() => void downloadQrCode(table).catch(() =>
+                  setError("Não foi possível gerar o QR Code. Tente novamente."),
+                )}
                 title="Baixar QR Code para impressão"
               >
                 <Download className="h-4 w-4" aria-hidden />
@@ -124,7 +126,7 @@ export function TablesManager({ establishmentId, tables }: TablesManagerProps) {
                 aria-label={table.is_active ? "Desativar mesa" : "Reativar mesa"}
                 title={table.is_active ? "Desativar mesa" : "Reativar mesa"}
                 onClick={() => toggleTable(table)}
-                className="rounded-lg p-2 text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                className="flex min-h-11 min-w-11 items-center justify-center rounded-lg p-2 text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-800"
               >
                 {table.is_active ? (
                   <Eye className="h-4 w-4" aria-hidden />

@@ -4,11 +4,12 @@ import { uuidSchema } from "@/schemas/common";
 
 export const metadata = { title: "Acompanhar pedido" };
 
-export default function OrderStatusPage({
+export default async function OrderStatusPage({
   params,
 }: {
-  params: { orderId: string };
+  params: Promise<{ orderId: string }>;
 }) {
-  if (!uuidSchema.safeParse(params.orderId).success) notFound();
-  return <OrderStatusView orderId={params.orderId} />;
+  const { orderId } = await params;
+  if (!uuidSchema.safeParse(orderId).success) notFound();
+  return <OrderStatusView key={orderId} orderId={orderId} />;
 }

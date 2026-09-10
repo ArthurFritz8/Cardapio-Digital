@@ -34,7 +34,7 @@ export function haversineMeters(a: GeoPoint, b: GeoPoint): number {
     Math.sin(dLat / 2) ** 2 +
     Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2;
 
-  return 2 * EARTH_RADIUS_METERS * Math.asin(Math.sqrt(h));
+  return 2 * EARTH_RADIUS_METERS * Math.asin(Math.sqrt(Math.min(1, Math.max(0, h))));
 }
 
 interface EstablishmentGeo {

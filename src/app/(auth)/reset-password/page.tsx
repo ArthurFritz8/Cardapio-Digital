@@ -5,6 +5,7 @@ import { useState } from "react";
 import { AuthCard, AuthLink } from "@/components/auth/AuthCard";
 import { Button, ErrorText, Input, Label } from "@/components/ui";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { credentialsSchema } from "@/schemas/auth";
 
 export default function ResetPasswordPage() {
   const router = useRouter();
@@ -16,8 +17,9 @@ export default function ResetPasswordPage() {
     event.preventDefault();
     setError(null);
 
-    if (password.length < 8) {
-      setError("Senha deve ter no mínimo 8 caracteres");
+    const parsed = credentialsSchema.shape.password.safeParse(password);
+    if (!parsed.success) {
+      setError(parsed.error.issues[0]?.message ?? "Senha inválida");
       return;
     }
 

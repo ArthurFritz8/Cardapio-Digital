@@ -3,12 +3,12 @@ import { TABLE_SESSION_HOURS } from "@/lib/constants";
 import {
   AppError,
   ERROR_CODES,
-  errorResponseBody,
   fromDbError,
-  toAppError,
 } from "@/lib/errors";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { uuidSchema } from "@/schemas/common";
+import { apiErrorResponse, PRIVATE_RESPONSE_HEADERS } from "@/lib/http";
+import { enforceIpRateLimit } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -23,16 +23,17 @@ interface TableSessionRow {
  * Inicia (ou reusa, se ainda válida) a sessão da mesa após o scan do QR.
  */
 export async function POST(
-  _request: Request,
-  { params }: { params: { tableId: string } },
+  request: Request,
+  { params }: { params: Promise<{ tableId: string }> },
 ) {
   try {
-    const parsed = uuidSchema.safeParse(params.tableId);
+    const parsed = uuidSchema.safeParse((await params).tableId);
     if (!parsed.success) {
       throw new AppError(ERROR_CODES.VALIDATION, "Identificador de mesa inválido.");
     }
 
     const admin = createSupabaseAdminClient();
+    await enforceIpRateLimit(request, admin, "sessions");
     const { data, error } = await admin.rpc("start_table_session", {
       p_table_id: parsed.data,
       p_session_hours: TABLE_SESSION_HOURS,
@@ -47,11 +48,8 @@ export async function POST(
       throw new AppError(ERROR_CODES.NOT_FOUND, "Mesa não encontrada ou inativa.");
     }
 
-    return NextResponse.json({ session });
+    return NextResponse.json({ session }, { headers: PRIVATE_RESPONSE_HEADERS });
   } catch (error) {
-    const appError = toAppError(error);
-    return NextResponse.json(errorResponseBody(appError), {
-      status: appError.status,
-    });
+    return apiErrorResponse(error);
   }
 }

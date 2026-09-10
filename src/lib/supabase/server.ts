@@ -1,6 +1,6 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { cookies } from "next/headers";
-import { getServerEnv } from "@/lib/env";
+import { getClientEnv } from "@/lib/env";
 
 type CookieToSet = { name: string; value: string; options: CookieOptions };
 
@@ -8,11 +8,11 @@ type CookieToSet = { name: string; value: string; options: CookieOptions };
  * Client Supabase para Server Components / Route Handlers,
  * autenticado via cookies da sessão do usuário (RLS aplicado).
  */
-export function createSupabaseServerClient() {
+export async function createSupabaseServerClient() {
   // cookies() ANTES do env: marca a rota como dinâmica no build,
   // evitando prerender que quebraria sem .env (CI/build local)
-  const cookieStore = cookies();
-  const env = getServerEnv();
+  const cookieStore = await cookies();
+  const env = getClientEnv();
 
   return createServerClient(
     env.NEXT_PUBLIC_SUPABASE_URL,
@@ -36,3 +36,4 @@ export function createSupabaseServerClient() {
     },
   );
 }
+import "server-only";
