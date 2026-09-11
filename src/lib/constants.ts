@@ -21,6 +21,12 @@ export const MAX_GPS_ACCURACY_COMPENSATION_METERS = 100;
 /** TTL do carrinho no localStorage (a sessão de mesa renova sozinha no envio). */
 export const CART_TTL_HOURS = 4;
 
+/** Atalhos locais de acompanhamento, sem armazenar itens ou dados do cliente. */
+export const RECENT_ORDERS_TTL_HOURS = 24;
+export const RECENT_ORDERS_TTL_MS = RECENT_ORDERS_TTL_HOURS * 60 * 60 * 1000;
+export const MAX_RECENT_ORDERS = 5;
+export const MAX_MENU_SEARCH_LENGTH = 100;
+
 /** Intervalo de polling do status do pedido (cliente anônimo — RLS veda Realtime). */
 export const ORDER_POLL_INTERVAL_MS = 5_000;
 

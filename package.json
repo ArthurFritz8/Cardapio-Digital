@@ -11,6 +11,7 @@
     "test": "vitest run",
     "generate:icons": "node scripts/generate-pwa-icons.mjs",
     "test:pwa": "vitest run scripts/pwa-cache.test.mjs",
+    "test:client-ux": "node scripts/check-client-ux.mjs",
     "scan:secrets": "node scripts/scan-secrets.mjs",
     "verify:build": "node scripts/verify-build.mjs"
   },

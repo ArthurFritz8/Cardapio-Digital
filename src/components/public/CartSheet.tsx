@@ -3,13 +3,15 @@
 import { Loader2, Minus, Plus, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
-import { Button, Textarea } from "@/components/ui";
+import { Modal } from "@/components/Modal";
+import { Button, Input, Textarea } from "@/components/ui";
 import type { CartApi } from "@/hooks/useCart";
 import { useGeolocation } from "@/hooks/useGeolocation";
 import { type CartItem } from "@/lib/cart";
 import { formatCents } from "@/lib/money";
 import { MAX_CUSTOMER_NAME_LENGTH, MAX_ITEM_NOTE_LENGTH, ORDER_REQUEST_TIMEOUT_MS } from "@/lib/constants";
 import { clearOrderAttempt, loadOrderAttempt, orderAttempt } from "@/lib/order-attempt";
+import { saveRecentOrder } from "@/lib/recent-orders";
 import {
   clearTableSession,
   loadTableSession,
@@ -105,6 +107,7 @@ export function CartSheet({
 
     if (response.ok) {
       const body = (await response.json()) as { order: { id: string } };
+      saveRecentOrder(tableId, body.order.id);
       cart.clear();
       clearOrderAttempt(tableId);
       router.push(`/pedido/${body.order.id}`);
@@ -149,14 +152,7 @@ export function CartSheet({
   }
 
   return (
-    <div className="fixed inset-0 z-30" role="dialog" aria-modal="true" aria-labelledby="cart-title" aria-busy={sending}>
-      <button
-        aria-label="Fechar carrinho"
-        onClick={onClose}
-        disabled={sending}
-        className="absolute inset-0 bg-black/50"
-      />
-      <div className="absolute inset-x-0 bottom-0 mx-auto max-h-[85dvh] max-w-lg overflow-y-auto rounded-t-3xl bg-white p-5 dark:bg-neutral-950">
+    <Modal open={open} onClose={onClose} labelledBy="cart-title" busy={sending} placement="bottom">
         <div className="mb-4 flex items-center justify-between">
           <h2 id="cart-title" className="text-lg font-bold">Seu pedido</h2>
           <button
@@ -221,6 +217,7 @@ export function CartSheet({
                 </button>
                 {noteOpenFor === item.menu_item_id ? (
                   <Textarea
+                    aria-label={`Observação para ${item.name}`}
                     value={item.note ?? ""}
                     onChange={(e) =>
                       cart.setNote(item.menu_item_id, e.target.value)
@@ -246,13 +243,12 @@ export function CartSheet({
               >
                 Seu nome (opcional — ajuda o garçom a te achar)
               </label>
-              <input
+              <Input
                 id="customer-name"
                 value={customerName}
                 onChange={(e) => setCustomerName(e.target.value)}
                 maxLength={MAX_CUSTOMER_NAME_LENGTH}
                 disabled={sending}
-                className="w-full rounded-xl border border-neutral-300 bg-transparent px-3 py-2 text-sm dark:border-neutral-700"
               />
             </div>
 
@@ -291,7 +287,6 @@ export function CartSheet({
             </Button>
           </>
         ) : null}
-      </div>
-    </div>
+    </Modal>
   );
 }

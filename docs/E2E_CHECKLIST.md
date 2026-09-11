@@ -113,4 +113,13 @@ Para inspecionar chamadas reais, use Network → requisição Supabase → Edit 
 - [ ] **G03** Registrar tamanho de JS das rotas principais no build e, no Android, tempo de primeira carga com rede móvel. Investigar regressão observada, sem impor limite fictício de bundle ou latência ao free tier.
 - [ ] **G04** Registrar bugs por severidade e evidências sanitizadas; repetir o fluxo B completo após correção Bloqueante/Alta. Marcar SMTP, tipos hospedados e condição comercial separadamente de checks locais.
 
+## H. Busca, atalhos locais e diálogos (ADR 0008)
+
+- [ ] **H01** Buscar um produto por nome/descrição/categoria, sem acento e com letras maiúsculas. Termos inexistentes mostram mensagem; limpar restaura itens e categorias. Busca não altera carrinho nem gera novas consultas. Repetir com cardápio em cache offline.
+- [ ] **H02** Após envio confirmado, voltar ao cardápio/recarregar: atalho em “Seus pedidos nesta mesa” abre o pedido original. Em outra mesa ou navegador, esse atalho não aparece. Storage contém apenas ID e data, sem itens/nome/preço/status.
+- [ ] **H03** Reenvio após resposta perdida recupera o mesmo pedido sem duplicar atalho. Mais de cinco envios preservam os cinco mais recentes. Antecipar `savedAt` em `cd.recent-orders.{tableId}` para mais de 24 horas e recarregar remove o expirado. “Limpar atalhos” não cancela pedidos nem limpa carrinho.
+- [ ] **H04** Com localStorage indisponível, envio confirmado continua navegando para acompanhamento; recuperação local não é garantida. JSON corrompido na chave de atalhos não derruba o cardápio.
+- [ ] **H05** Carrinho e cancelamento: Tab/Shift+Tab não alcançam controles do fundo; Escape/toque fora fecham e foco retorna ao botão de abertura quando ainda existe. Corpo não rola atrás. Durante envio/cancelamento, Escape/toque fora/Voltar/Fechar não interrompem a ação.
+- [ ] **H06** No Android físico em 320–390 px, abrir teclado no nome/observação e motivo: campo e ação continuam alcançáveis por rolagem. Conferir fechamento/restauração e leitura dos títulos via TalkBack. Roteiro automatizado local cobre UI pública com APIs simuladas, não esta operação hospedada.
+
 Resultado: **Pendente até execução**. Registrar em `docs/smoke-runs/AAAA-MM-DD.md`: commit, ambiente, itens aprovados/falhos/pendentes e links para bugs. “Sem bloqueantes” exige que os casos obrigatórios executados não tenham falhas e que as condições externas para o uso pretendido estejam resolvidas.

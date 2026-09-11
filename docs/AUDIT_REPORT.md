@@ -91,7 +91,7 @@ não avançam. As migrations 0001–0003 permanecem intactas, com endurecimento 
 | U04 | Média | Controles de 32 px e áudio suspenso sem atualização do indicador | Controles principais de 44 px; estado real do AudioContext e limpeza de osciladores/contexto; sem dependência exclusiva de hover |
 | U05 | Média | Carrinho/cache corrompidos e data inválida podiam persistir; nome do cliente aceitava mais que a API | Validação de cache, limite de 60 caracteres na UI, timestamps inválidos/futuros tratados, UUID de tentativa preservado após reload; testes de persistência |
 | U06 | Média | Status já carregado podia continuar silencioso quando dispositivo ficava offline | Evento offline agora informa perda da conexão, mantendo o último estado; reconexão revalida |
-| U07 | Média, residual | Modais não têm gerenciamento completo de foco/Escape; Android físico e teclado não exercitados | Identificação acessível dos diálogos e roteiro mobile preparados; revisão de foco e testes em aparelho permanecem para o piloto |
+| U07 | Média, corrigida no ADR 0008; aparelho físico residual | Modais não tinham gerenciamento completo de foco/Escape | Modal nativo compartilhado, fundo inerte, restauração de foco, Escape e bloqueio durante envio. Teclado e layout 320 px exercitados em Edge headless; fluxo autenticado e Android físico permanecem no piloto |
 
 Offline é **leitura de menu previamente visitado**, não primeira visita sem
 rede nem envio enfileirado. Status exige rede para abrir; áudio depende de gesto

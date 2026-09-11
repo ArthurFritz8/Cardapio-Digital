@@ -3,6 +3,7 @@
 import { History, Volume2, VolumeX } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { OrderCard } from "@/components/admin/OrderCard";
+import { Modal } from "@/components/Modal";
 import { Button, cn } from "@/components/ui";
 import { useNotificationSound } from "@/hooks/useNotificationSound";
 import {
@@ -324,18 +325,7 @@ export function OrdersBoard({ establishmentId }: { establishmentId: string }) {
       )}
 
       {cancelTarget ? (
-        <div
-          className="fixed inset-0 z-30 flex items-center justify-center p-4"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="cancel-order-title"
-        >
-          <button
-            aria-label="Fechar"
-            onClick={() => setCancelTarget(null)}
-            className="absolute inset-0 bg-black/50"
-          />
-          <div className="relative w-full max-w-sm rounded-2xl bg-white p-5 dark:bg-neutral-950">
+        <Modal open onClose={() => setCancelTarget(null)} labelledBy="cancel-order-title" busy={cancelling}>
             <h2 id="cancel-order-title" className="mb-1 text-lg font-bold">
               {isAwaitingConfirmation(cancelTarget) ? "Recusar" : "Cancelar"}{" "}
               pedido da {cancelTarget.table_label}?
@@ -354,8 +344,9 @@ export function OrdersBoard({ establishmentId }: { establishmentId: string }) {
             <select
               id="cancel-reason"
               value={cancelReason}
+              disabled={cancelling}
               onChange={(e) => setCancelReason(e.target.value)}
-              className="mb-4 w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-900"
+              className="mb-4 min-h-11 w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-base dark:border-neutral-700 dark:bg-neutral-900 sm:text-sm"
             >
               <option value="">Sem motivo</option>
               {CANCEL_REASONS.map((reason) => (
@@ -368,6 +359,7 @@ export function OrdersBoard({ establishmentId }: { establishmentId: string }) {
               <Button
                 variant="ghost"
                 onClick={() => setCancelTarget(null)}
+                disabled={cancelling}
                 className="flex-1"
               >
                 Voltar
@@ -381,8 +373,7 @@ export function OrdersBoard({ establishmentId }: { establishmentId: string }) {
                 {cancelling ? "Cancelando…" : "Confirmar cancelamento"}
               </Button>
             </div>
-          </div>
-        </div>
+        </Modal>
       ) : null}
     </div>
   );

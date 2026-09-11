@@ -3,12 +3,14 @@
 import { Plus, ShoppingBag, WifiOff } from "lucide-react";
 import { useEffect, useState } from "react";
 import { CartSheet } from "@/components/public/CartSheet";
-import { cn } from "@/components/ui";
+import { RecentOrders } from "@/components/public/RecentOrders";
+import { Button, cn, Input } from "@/components/ui";
 import { useCart } from "@/hooks/useCart";
 import { useMenu } from "@/hooks/useMenu";
 import { useOnline } from "@/hooks/useOnline";
 import { formatCents } from "@/lib/money";
-import { CART_FEEDBACK_DURATION_MS } from "@/lib/constants";
+import { CART_FEEDBACK_DURATION_MS, MAX_MENU_SEARCH_LENGTH } from "@/lib/constants";
+import { searchMenu } from "@/lib/menu-search";
 import type { MenuItem } from "@/types/domain";
 
 export function PublicMenu({ tableId }: { tableId: string }) {
@@ -17,6 +19,7 @@ export function PublicMenu({ tableId }: { tableId: string }) {
   const online = useOnline();
   const [cartOpen, setCartOpen] = useState(false);
   const [fabBump, setFabBump] = useState(false);
+  const [query, setQuery] = useState("");
 
   useEffect(() => {
     if (!("serviceWorker" in navigator)) return;
@@ -56,6 +59,9 @@ export function PublicMenu({ tableId }: { tableId: string }) {
   if (!menu) return null;
 
   const { establishment, table, categories, items } = menu;
+  const matchingItems = searchMenu(items, categories, query);
+  const matchingCategoryIds = new Set(matchingItems.map((item) => item.category_id));
+  const visibleCategories = categories.filter((category) => matchingCategoryIds.has(category.id));
 
   function handleAdd(item: MenuItem) {
     cart.add({
@@ -105,9 +111,20 @@ export function PublicMenu({ tableId }: { tableId: string }) {
         </div>
       ) : null}
 
-      {categories.length > 0 ? (
+      <div role="search" className="mx-auto max-w-lg px-4 py-3">
+        <label htmlFor="menu-search" className="mb-1 block text-sm font-medium">Buscar no cardápio</label>
+        <div className="flex gap-2">
+          <Input id="menu-search" type="search" value={query} onChange={(event) => setQuery(event.target.value)} maxLength={MAX_MENU_SEARCH_LENGTH} placeholder="Prato, ingrediente ou categoria" aria-controls="menu-results" />
+          {query ? <Button variant="ghost" onClick={() => setQuery("")}>Limpar busca</Button> : null}
+        </div>
+        <p role="status" className="mt-1 text-xs text-neutral-500">
+          {query.trim() ? `${matchingItems.length} item(ns) encontrado(s)` : ""}
+        </p>
+      </div>
+
+      {visibleCategories.length > 0 ? (
         <nav className="sticky top-0 z-10 flex gap-2 overflow-x-auto border-b border-neutral-200 bg-white/95 px-4 py-2 backdrop-blur dark:border-neutral-800 dark:bg-neutral-950/95">
-          {categories.map((category) => (
+          {visibleCategories.map((category) => (
             <a
               key={category.id}
               href={`#cat-${category.id}`}
@@ -120,20 +137,24 @@ export function PublicMenu({ tableId }: { tableId: string }) {
       ) : null}
 
       <main className="mx-auto max-w-lg space-y-8 px-4 py-6">
+        <RecentOrders key={tableId} tableId={tableId} />
+        <div id="menu-results" className="space-y-8">
         {items.length === 0 ? (
           <p className="py-16 text-center text-sm text-neutral-500">
             Nenhum item disponível no momento. Chame o garçom para saber as
             opções de hoje!
           </p>
+        ) : matchingItems.length === 0 ? (
+          <p className="py-8 text-center text-sm text-neutral-500">Nenhum item corresponde à busca. Tente outro termo ou limpe a busca.</p>
         ) : (
-          categories.map((category) => {
-            const categoryItems = items.filter(
+          visibleCategories.map((category) => {
+            const categoryItems = matchingItems.filter(
               (i) => i.category_id === category.id,
             );
             if (categoryItems.length === 0) return null;
             return (
-              <section key={category.id} id={`cat-${category.id}`}>
-                <h2 className="mb-3 scroll-mt-14 text-base font-bold">
+              <section key={category.id} id={`cat-${category.id}`} className="scroll-mt-16">
+                <h2 className="mb-3 text-base font-bold">
                   {category.name}
                 </h2>
                 <ul className="space-y-3">
@@ -177,6 +198,7 @@ export function PublicMenu({ tableId }: { tableId: string }) {
             );
           })
         )}
+        </div>
       </main>
 
       {cart.count > 0 ? (
