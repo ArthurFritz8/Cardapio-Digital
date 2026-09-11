@@ -15,8 +15,8 @@ não havia rate limit contra abuso das rotas públicas.
 
 Antes do primeiro deploy real (ADR 0006), uma segunda revisão de
 segurança encontrou 4 gaps que RLS por linha não cobre e que só
-aparecem sob adversário ativo (não sob uso normal, por isso passaram
-despercebidos nos smoke tests manuais):
+aparecem sob concorrência ou acesso direto ao banco. Não havia smoke test
+hospedado registrado; esta revisão não comprova essa integração:
 
 1. Policies de RLS por **linha** não impedem que uma coluna sensível
    (ex.: `tables.session_token`) vaze para `anon` num `select *`.
@@ -31,11 +31,11 @@ despercebidos nos smoke tests manuais):
 
 ### Migration 0004 (`supabase/migrations/0004_audit_hardening.sql`)
 
-- **RLS por coluna via GRANT/REVOKE**: `revoke all` seguido de `grant
+- **Privilégios por coluna via GRANT/REVOKE, combinados com RLS**: `revoke all` seguido de `grant
   select`/`insert`/`update` explícito por coluna. `tables` expõe a
   `anon`/`authenticated` só `id, establishment_id, label, is_active,
-  created_at` — `session_token`/`session_expires_at` nunca aparecem em
-  um `select *` do cliente.
+  created_at`. Ler `session_token`/`session_expires_at` é proibido;
+  `select *` é rejeitado, exigindo projeção explícita dos campos públicos.
 - **FKs compostas** `(id, establishment_id)` em `categories`/`tables`,
   refletidas nas FKs de `menu_items.category_id` e `orders.table_id`:
   impossível referenciar categoria/mesa de **outro** estabelecimento
@@ -51,8 +51,8 @@ despercebidos nos smoke tests manuais):
   duplicar. Cliente gera um uuid por tentativa de envio
   ([order-attempt.ts](../../src/lib/order-attempt.ts)).
 - **Rate limit por IP**: tabela `ip_requests` (chave = HMAC-SHA256 do
-  IP, nunca IP cru) + RPC atômica `consume_ip_rate_limit` (sliding
-  window simples via `ON CONFLICT DO UPDATE`). Sem cron: linhas
+  IP, nunca IP cru) + RPC atômica `consume_ip_rate_limit` (janela fixa
+  iniciada na primeira requisição, via `ON CONFLICT DO UPDATE`). Sem cron: linhas
   expiradas são varridas de forma incremental a cada chamada.
 
 ### Código
@@ -76,7 +76,7 @@ despercebidos nos smoke tests manuais):
   (polling + evento Realtime disparando ao mesmo tempo) não aplica
   resposta desatualizada por cima de uma mais recente.
 - Ícones PWA reais (192/512/maskable/apple-touch) via
-  `scripts/generate-icons.mjs`, substituindo o SVG placeholder.
+  `scripts/generate-pwa-icons.mjs`, substituindo o SVG placeholder.
 - `scripts/scan-secrets.mjs`: scanner de segredos versionado (antes era
   só um `grep` ad-hoc no terminal a cada commit).
 
@@ -95,8 +95,9 @@ asserção).
 3. Idempotência de escrita pública é obrigatória sempre que o cliente
    pode reenviar por timeout — sem isso, todo endpoint de criação vira
    fonte potencial de duplicata.
-4. Rate limit por IP cru é proibido (LGPD/PII) — sempre hash com
-   segredo do servidor (HMAC), nunca reversível.
+4. A decisão do projeto é não persistir IP cru: usar HMAC com segredo do
+   servidor reduz exposição. É pseudonimização, não uma garantia jurídica
+   de anonimização. Linhas expiradas são removidas em chamadas subsequentes.
 5. **Bug de validação encontrado nesta própria tarefa**: `tsconfig.json`
    sem `target` cai em ES3 por padrão do TypeScript; um spread de
    `Map.values()` só falha silenciosamente até alguém rodar
@@ -113,3 +114,12 @@ asserção).
 - Rodar o smoke test (ADR 0006) contra o schema 0001–0004 completo.
 - `supabase/tests/audit-regression.sql` ainda não foi executado num
   projeto real (só revisado estaticamente).
+
+### Validação complementar da auditoria (ADR 0006)
+
+Em 10/09/2026 a suíte SQL passou em PostgreSQL 16 descartável com roles
+e schemas auxiliares simulando os contratos do Supabase. Também passaram
+testes concorrentes de sessão, limite por mesa, idempotência e quota IP,
+além da execução/reexecução do seed. Isso substitui a indicação de
+“só revisado estaticamente” para o teste local; Supabase hospedado continua
+pendente. O relatório completo está em [AUDIT_REPORT.md](../AUDIT_REPORT.md).

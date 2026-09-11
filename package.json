@@ -9,9 +9,10 @@
     "lint": "eslint src --max-warnings=0",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "generate:icons": "node scripts/generate-icons.mjs",
-    "test:pwa": "node --test scripts/pwa-cache.test.mjs",
-    "scan:secrets": "node scripts/scan-secrets.mjs"
+    "generate:icons": "node scripts/generate-pwa-icons.mjs",
+    "test:pwa": "vitest run scripts/pwa-cache.test.mjs",
+    "scan:secrets": "node scripts/scan-secrets.mjs",
+    "verify:build": "node scripts/verify-build.mjs"
   },
   "dependencies": {
     "@ducanh2912/next-pwa": "^10.2.9",

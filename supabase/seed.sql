@@ -1,5 +1,5 @@
 -- Seed opcional para ambiente de smoke test (ADR 0006).
--- Arquivo canônico: supabase/seed.sql; docs/SEED.sql é uma cópia idêntica.
+-- Única fonte de inserções. docs/SEED.sql contém instruções/conferência.
 -- Após migrations 0001..0004, crie/confirme uma conta DE TESTE no Auth.
 -- Substitua SOMENTE o null de v_owner abaixo por 'UUID-DA-CONTA'::uuid.
 -- Sem escolha explícita, falha sem alterar dados. Não execute em produção.

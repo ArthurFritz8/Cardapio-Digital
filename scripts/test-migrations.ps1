@@ -30,6 +30,8 @@ try {
   }
   Invoke-Pg 'psql' ($sqlConnection + @('-f', (Join-Path $PSScriptRoot 'verify-migrations.sql')))
   Invoke-Pg 'psql' ($sqlConnection + @('-f', (Join-Path $repoRoot 'supabase/tests/audit-regression.sql')))
+  & node (Join-Path $PSScriptRoot 'test-concurrency.mjs') $PostgreSqlBin "$auditPort" $auditDb
+  if ($LASTEXITCODE -ne 0) { throw 'Testes de seed/concorrência falharam.' }
   Write-Host 'SQL aprovado em PostgreSQL descartável. Smoke Supabase/PostgREST/Realtime real ainda obrigatório.'
 } finally {
   if ($started) { Invoke-Pg 'pg_ctl' @('-D', $auditData, '-m', 'fast', '-w', 'stop') }

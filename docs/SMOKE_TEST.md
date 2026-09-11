@@ -52,12 +52,22 @@ npm run test
 npm run typecheck
 npm run lint
 npm run build
+npm run verify:build
 npm run start
 ```
 
 - [ ] Registrar versão do Node (`node --version`), commit (`git rev-parse HEAD`) e saídas dos checks.
 - [ ] Verificar `npm audit --omit=dev` e registrar qualquer vulnerabilidade de produção pendente.
 - [ ] Abrir `/login` e uma rota pública para exercitar env e conexão real.
+
+Use Node 22 (`engines` do projeto). `npm test` inclui os testes das regras PWA;
+`npm run test:pwa` os executa isoladamente. `npm run generate:icons` reproduz
+os PNGs e `npm run scan:secrets` verifica arquivos versionáveis sem imprimir
+valores encontrados. Para validar SQL local no Windows com PostgreSQL 16,
+execute `./scripts/test-migrations.ps1` sem redirecionar a saída global do
+processo: o harness sobe/encerra uma instância isolada em loopback, testa seed
+e concorrência e remove seu diretório temporário. Isso não substitui Supabase
+hospedado; resultados detalhados estão em [AUDIT_REPORT.md](AUDIT_REPORT.md).
 
 ## 4. Configurar Auth e preparar as contas
 
@@ -84,7 +94,7 @@ O signup, a recuperação de senha e a troca de senha devem ser exercitados sepa
 
 ## 5. Seed explícito e reexecutável
 
-Abra [SEED.sql](SEED.sql), cópia idêntica de [supabase/seed.sql](../supabase/seed.sql). No SQL que será executado, substitua `v_owner uuid := null` pelo UUID da **Conta A**, copiado de Authentication → Users. Não escolha “primeiro usuário”, não use email de cliente real e não versione IDs de ambiente no arquivo canônico.
+Siga [SEED.sql](SEED.sql) e abra a fonte única [supabase/seed.sql](../supabase/seed.sql). No SQL que será executado, substitua `v_owner uuid := null` pelo UUID da **Conta A**, copiado de Authentication → Users. Não escolha “primeiro usuário”, não use email de cliente real e não versione IDs de ambiente no arquivo canônico.
 
 - [ ] Executar o arquivo completo após as quatro migrations. Sem escolha de dono, o seed deve falhar com `SEED_OWNER_REQUIRED` sem inserir dados.
 - [ ] Verificar contagens iniciais: 1 estabelecimento, 2 categorias, 4 itens, 3 mesas.

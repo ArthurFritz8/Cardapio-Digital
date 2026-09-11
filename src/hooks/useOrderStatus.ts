@@ -67,8 +67,15 @@ export function useOrderStatus(orderId: string) {
     const onVisibilityChange = () => {
       if (document.visibilityState === "visible") void refresh();
     };
+    const onOffline = () => {
+      if (statusRef.current && TERMINAL_STATUSES.includes(statusRef.current)) return;
+      requestRef.current?.abort();
+      setError("Você está offline. O acompanhamento será atualizado ao reconectar.");
+      setIsLoading(false);
+    };
     document.addEventListener("visibilitychange", onVisibilityChange);
     window.addEventListener("online", onVisibilityChange);
+    window.addEventListener("offline", onOffline);
     return () => {
       activeOrderIdRef.current = "";
       requestRef.current?.abort();
@@ -76,6 +83,7 @@ export function useOrderStatus(orderId: string) {
       clearInterval(interval);
       document.removeEventListener("visibilitychange", onVisibilityChange);
       window.removeEventListener("online", onVisibilityChange);
+      window.removeEventListener("offline", onOffline);
     };
   }, [orderId, refresh]);
 

@@ -25,7 +25,7 @@ npm run start
 
 Para desenvolver, use `npm run dev`. Não é necessário executar Supabase local ou instalar Docker: migrations e geração dos tipos podem usar o projeto hospedado.
 
-O seed é opcional: [supabase/seed.sql](supabase/seed.sql), também disponível em [docs/SEED.sql](docs/SEED.sql), exige o UUID de uma conta de teste escolhida explicitamente. Não seleciona usuários automaticamente nem sobrescreve dados existentes.
+O seed é opcional: [supabase/seed.sql](supabase/seed.sql) é a única fonte dos dados e exige o UUID de uma conta de teste escolhida explicitamente. [docs/SEED.sql](docs/SEED.sql) contém instruções e consultas de conferência, sem duplicar as inserções. Não seleciona usuários automaticamente nem sobrescreve dados existentes.
 
 ## Limites para uso real
 
@@ -52,6 +52,8 @@ O SMTP padrão do Supabase é limitado a endereços da equipe do projeto e, na d
 | [scripts/verify-migrations.sql](scripts/verify-migrations.sql) | Validar invariantes do schema após as migrations |
 | [docs/E2E_CHECKLIST.md](docs/E2E_CHECKLIST.md) | Testar dois dispositivos, duas contas, PWA e regressões |
 | [docs/BUG_TEMPLATE.md](docs/BUG_TEMPLATE.md) | Registrar falha, severidade, reprodução e evidências |
+| [docs/AUDIT_REPORT.md](docs/AUDIT_REPORT.md) | Achados por eixo/severidade, correções, resultados locais e pendências |
+| [scripts/test-migrations.ps1](scripts/test-migrations.ps1) | SQL, seed e concorrência em PostgreSQL descartável no Windows |
 | [docs/ADR](docs/ADR/) | Decisões O.C.S.P.; ADR 0006 consolida a auditoria |
 
 A geração dos tipos reais com `npx supabase gen types typescript --project-id ... --schema public` está descrita no smoke test. Só trate o schema como validado no ambiente hospedado depois de registrar o resultado da verificação SQL e do E2E.
